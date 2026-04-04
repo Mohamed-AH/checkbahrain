@@ -1,0 +1,36 @@
+name: Bahrain Cluster Monitor
+
+on:
+  schedule:
+    # Runs every hour (0 minutes past the hour)
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allows you to run it manually to test
+
+jobs:
+  check-mongodb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install MongoDB Shell
+        run: |
+          sudo wget -qO- https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor | sudo tee /usr/share/keyrings/mongodb-server-7.0.gpg > /dev/null
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-mongosh
+
+      - name: Check Bahrain Connection
+        env:
+          MONGO_URI: ${{ secrets.BAHRAIN_MONGO_URI }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          # Try to ping the cluster
+          if mongosh "$MONGO_URI" --eval "db.adminCommand('ping')" --quiet --connectTimeoutMS 5000; then
+            echo "Cluster is UP!"
+            
+            # Send Telegram Alert
+            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+                 -d "chat_id=$TELEGRAM_CHAT_ID" \
+                 -d "text=🚨 ALERT: Bahrain MongoDB Cluster is BACK ONLINE. Time to revert from Mumbai."
+          else
+            echo "Cluster is still down."
+          fi
