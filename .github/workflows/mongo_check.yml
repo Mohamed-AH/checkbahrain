@@ -2,9 +2,9 @@ name: Bahrain Cluster Monitor
 
 on:
   schedule:
-    # Runs every hour (0 minutes past the hour)
+    # Runs every hour
     - cron: '0 * * * *'
-  workflow_dispatch: # Allows you to run it manually to test
+  workflow_dispatch: # Allows manual trigger for testing
 
 jobs:
   check-mongodb:
@@ -24,13 +24,16 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           # Try to ping the cluster
-          if mongosh "$MONGO_URI" --eval "db.adminCommand('ping')" --quiet --connectTimeoutMS 5000; then
+          if mongosh "$MONGO_URI" --eval "db.adminCommand('ping')" --quiet --connectTimeoutMS 10000; then
             echo "Cluster is UP!"
-            
-            # Send Telegram Alert
+            # Success Alert
             curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
                  -d "chat_id=$TELEGRAM_CHAT_ID" \
-                 -d "text=🚨 ALERT: Bahrain MongoDB Cluster is BACK ONLINE. Time to revert from Mumbai."
+                 -d "text=✅ ALERT: Bahrain MongoDB Cluster is BACK ONLINE. Time to revert from Mumbai."
           else
             echo "Cluster is still down."
+            # Status Alert (to confirm the script is working)
+            curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+                 -d "chat_id=$TELEGRAM_CHAT_ID" \
+                 -d "text=⏳ Status Check: Bahrain server is not yet ready. Monitoring continues..."
           fi
